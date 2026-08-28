@@ -1,8 +1,13 @@
+- Commit after each major change/update, include meaningful commit message
+- If you do not know answer for the question, acknowledge it, do not make up answers by guessing.
+- Work only within the project directory: 'D:\dev\task-manager'. Do not edit/update/delete files and configs beyond this project folder.
+
 ## Agent skills
 
 ### Issue tracker
 
 Issues live in GitHub Issues (smukhitov/task-manager), using the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Github Project to track the issues: "progress_tracker"
 
 ### Triage labels
 
