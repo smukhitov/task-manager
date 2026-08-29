@@ -38,12 +38,20 @@ export const BoardSortMenu = ({
   const [open, setOpen] = useState(false)
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    // `aria-disabled` rather than `disabled`: the button is disabled for a
+    // beat right after a selection, and a focused element that goes `disabled`
+    // is blurred to `document.body`, restarting the next Tab from the top of
+    // the page. This keeps the trigger focusable and inert.
+    <DropdownMenu
+      open={open}
+      onOpenChange={(next) => setOpen(next && !disabled)}
+    >
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
-          disabled={disabled}
+          aria-disabled={disabled}
+          className={disabled ? "opacity-50" : undefined}
           aria-label={`Sort ${title}`}
         >
           <ArrowDownUp />

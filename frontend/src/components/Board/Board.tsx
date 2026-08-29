@@ -110,13 +110,24 @@ export const Board = () => {
     }),
   )
 
+  // Writes still on the wire. Counted rather than read off `isPending`,
+  // because the callbacks below close over a stale render and because one
+  // write settling says nothing about the others.
+  const pendingWritesRef = useRef(0)
+
+  const beginWrite = () => {
+    pendingWritesRef.current += 1
+  }
+
   // Hand back to the server's arrangement only once it has been refetched, so
   // a card never flickers into its old slot in between. On failure this is
-  // what snaps the board back. A drag started while the refetch was in flight
-  // owns the arrangement now, so leave it alone.
+  // what snaps the board back. A drag started while the refetch was in
+  // flight — or another write still to land — owns the arrangement now, so
+  // leave it alone.
   const releaseToServerArrangement = async () => {
     await queryClient.invalidateQueries({ queryKey: ["items"] })
-    if (activeIdRef.current === null) {
+    pendingWritesRef.current -= 1
+    if (activeIdRef.current === null && pendingWritesRef.current === 0) {
       setDragColumns(null)
     }
   }
@@ -127,6 +138,7 @@ export const Board = () => {
         path: { id },
         body: { target_status, target_index },
       }),
+    onMutate: beginWrite,
     onError: handleError.bind(showErrorToast),
     onSettled: releaseToServerArrangement,
   })
@@ -136,9 +148,18 @@ export const Board = () => {
   const sortMutation = useMutation({
     mutationFn: ({ status, direction }: SortVariables) =>
       ItemsService.sortItems({ body: { status, direction } }),
+    onMutate: beginWrite,
     onError: handleError.bind(showErrorToast),
     onSettled: releaseToServerArrangement,
   })
+
+  // A move and a sort both renumber a whole column server-side with no
+  // locking between them, so the two must never overlap: whichever read its
+  // column first would write a renumbering that ignores the other. Dragging
+  // and sorting are therefore mutually exclusive until the board has caught
+  // up — `activeId` alone is not enough, since it is cleared at the drop,
+  // before the move it produced has been sent.
+  const writePending = moveMutation.isPending || sortMutation.isPending
 
   const activeItem =
     activeId === null
@@ -153,8 +174,7 @@ export const Board = () => {
     // Start from what is on screen. While an earlier move is still being
     // refetched, `serverColumns` is one move behind, so reusing it here would
     // snap the card back to where it was before that move.
-    const base =
-      moveMutation.isPending && dragColumns ? dragColumns : serverColumns
+    const base = writePending && dragColumns ? dragColumns : serverColumns
     originColumnsRef.current = base
     setDragColumns(base)
   }
@@ -277,19 +297,16 @@ export const Board = () => {
             key={status}
             status={status}
             activeId={activeId}
+            // A sort has no optimistic update, so until its refetch lands the
+            // board still shows the pre-sort order — a drop measured against
+            // it would target a slot the user never saw.
+            dragDisabled={sortMutation.isPending}
             title={title}
             items={columns[status]}
             action={
               <BoardSortMenu
                 title={title}
-                // Sorting mid-drag would renumber the column under the
-                // card being moved, so the control is closed off until the
-                // drop — and until this column's own sort has come back.
-                disabled={
-                  activeId !== null ||
-                  (sortMutation.isPending &&
-                    sortMutation.variables.status === status)
-                }
+                disabled={activeId !== null || writePending}
                 onSort={(direction) =>
                   sortMutation.mutate({ status, direction })
                 }

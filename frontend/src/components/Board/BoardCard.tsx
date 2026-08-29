@@ -11,6 +11,8 @@ interface BoardCardProps {
   item: ItemPublic
   /** True while this card is the one being dragged. */
   isActive: boolean
+  /** Hold the card still — a write is in flight that will reorder it. */
+  dragDisabled?: boolean
 }
 
 /**
@@ -19,7 +21,7 @@ interface BoardCardProps {
  * The grip is the drag handle so the actions menu stays clickable. It is a
  * real button, which makes the card reachable — and movable — by keyboard.
  */
-export const BoardCard = ({ item, isActive }: BoardCardProps) => {
+export const BoardCard = ({ item, isActive, dragDisabled }: BoardCardProps) => {
   const {
     attributes,
     listeners,
@@ -34,7 +36,7 @@ export const BoardCard = ({ item, isActive }: BoardCardProps) => {
     // first arrow key toward its own measured rect — which sits a few pixels
     // off the pick-up position — get consumed snapping the card onto itself
     // instead of moving it to the neighbouring column.
-    disabled: { droppable: isActive },
+    disabled: { draggable: dragDisabled === true, droppable: isActive },
   })
 
   return (
