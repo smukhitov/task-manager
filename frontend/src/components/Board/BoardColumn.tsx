@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils"
 import { BoardCard } from "./BoardCard"
 
 interface BoardColumnProps {
+  /** The id of the card currently being dragged, if any. */
+  activeId: string | null
   status: ItemStatus
   title: string
   items: ItemPublic[]
@@ -16,6 +18,7 @@ interface BoardColumnProps {
 
 export const BoardColumn = ({
   status,
+  activeId,
   title,
   items,
   action,
@@ -50,7 +53,11 @@ export const BoardColumn = ({
           strategy={verticalListSortingStrategy}
         >
           {items.map((item) => (
-            <BoardCard key={item.id} item={item} />
+            <BoardCard
+              key={item.id}
+              item={item}
+              isActive={activeId === item.id}
+            />
           ))}
         </SortableContext>
         {items.length === 0 && (

@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core"
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 
 import { type ItemPublic, type ItemStatus, ItemsService } from "@/client"
 import { Card } from "@/components/ui/card"
@@ -85,6 +85,10 @@ export const Board = () => {
   // the pointer across columns before the server has been told anything.
   const [dragColumns, setDragColumns] = useState<Columns | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
+  // Read from the mutation's async callbacks, which close over a stale render.
+  const activeIdRef = useRef<string | null>(null)
+  // Where the card sat when this drag began — what a no-op drop is judged against.
+  const originColumnsRef = useRef<Columns | null>(null)
 
   const columns = dragColumns ?? serverColumns
 
@@ -106,8 +110,11 @@ export const Board = () => {
       await queryClient.invalidateQueries({ queryKey: ["items"] })
       // Hand back to the server's arrangement only once it has been refetched,
       // so the card never flickers into its old slot in between. On failure
-      // this is what snaps the board back.
-      setDragColumns(null)
+      // this is what snaps the board back. A drag started while the refetch
+      // was in flight owns the arrangement now, so leave it alone.
+      if (activeIdRef.current === null) {
+        setDragColumns(null)
+      }
     },
   })
 
@@ -119,8 +126,15 @@ export const Board = () => {
           .find((item) => item.id === activeId) ?? null)
 
   const handleDragStart = ({ active }: DragStartEvent) => {
+    activeIdRef.current = String(active.id)
     setActiveId(String(active.id))
-    setDragColumns(serverColumns)
+    // Start from what is on screen. While an earlier move is still being
+    // refetched, `serverColumns` is one move behind, so reusing it here would
+    // snap the card back to where it was before that move.
+    const base =
+      moveMutation.isPending && dragColumns ? dragColumns : serverColumns
+    originColumnsRef.current = base
+    setDragColumns(base)
   }
 
   const handleDragOver = ({ active, over }: DragOverEvent) => {
@@ -160,6 +174,8 @@ export const Board = () => {
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     const working = dragColumns
+    const origins = originColumnsRef.current ?? serverColumns
+    activeIdRef.current = null
     setActiveId(null)
 
     if (!over || !working) {
@@ -178,8 +194,15 @@ export const Board = () => {
     const overIndex = working[targetStatus].findIndex(
       (item) => item.id === String(over.id),
     )
+    // Dropping on a card targets that card's slot. Dropping on the column
+    // background keeps the card where the drag already put it — appending only
+    // if it is not in this column yet.
     const targetIndex =
-      overIndex === -1 ? working[targetStatus].length - 1 : overIndex
+      overIndex !== -1
+        ? overIndex
+        : fromIndex !== -1
+          ? fromIndex
+          : working[targetStatus].length
 
     const settled =
       fromIndex === -1
@@ -194,9 +217,9 @@ export const Board = () => {
           }
     setDragColumns(settled)
 
-    const origin = findColumn(serverColumns, id)
+    const origin = findColumn(origins, id)
     const originIndex = origin
-      ? serverColumns[origin].findIndex((item) => item.id === id)
+      ? origins[origin].findIndex((item) => item.id === id)
       : -1
     if (origin === targetStatus && originIndex === targetIndex) {
       // Picked up and put back where it started — nothing to persist.
@@ -221,6 +244,7 @@ export const Board = () => {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       onDragCancel={() => {
+        activeIdRef.current = null
         setActiveId(null)
         setDragColumns(null)
       }}
@@ -230,6 +254,7 @@ export const Board = () => {
           <BoardColumn
             key={status}
             status={status}
+            activeId={activeId}
             title={title}
             items={columns[status]}
           />

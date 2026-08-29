@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils"
 
 interface BoardCardProps {
   item: ItemPublic
+  /** True while this card is the one being dragged. */
+  isActive: boolean
 }
 
 /**
@@ -17,7 +19,7 @@ interface BoardCardProps {
  * The grip is the drag handle so the actions menu stays clickable. It is a
  * real button, which makes the card reachable — and movable — by keyboard.
  */
-export const BoardCard = ({ item }: BoardCardProps) => {
+export const BoardCard = ({ item, isActive }: BoardCardProps) => {
   const {
     attributes,
     listeners,
@@ -26,7 +28,14 @@ export const BoardCard = ({ item }: BoardCardProps) => {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id })
+  } = useSortable({
+    id: item.id,
+    // A card is never a drop target for itself. Leaving it enabled makes the
+    // first arrow key toward its own measured rect — which sits a few pixels
+    // off the pick-up position — get consumed snapping the card onto itself
+    // instead of moving it to the neighbouring column.
+    disabled: { droppable: isActive },
+  })
 
   return (
     <Card
