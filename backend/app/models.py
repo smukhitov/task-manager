@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime
+from enum import StrEnum
 
 from pydantic import EmailStr
 from sqlalchemy import DateTime
@@ -70,6 +71,21 @@ class UsersPublic(SQLModel):
     count: int
 
 
+class ItemStatus(StrEnum):
+    """The board column an item lives in."""
+
+    todo = "todo"
+    in_progress = "in_progress"
+    completed = "completed"
+
+
+class SortDirection(StrEnum):
+    """Direction used when renumbering a column by `created_at`."""
+
+    newest_first = "newest_first"
+    oldest_first = "oldest_first"
+
+
 # Shared properties
 class ItemBase(SQLModel):
     title: str = Field(min_length=1, max_length=255)
@@ -87,6 +103,18 @@ class ItemUpdate(SQLModel):
     description: str | None = Field(default=None, max_length=255)
 
 
+# Properties to receive when moving an item to a status and index
+class ItemMove(SQLModel):
+    target_status: ItemStatus
+    target_index: int = Field(ge=0)
+
+
+# Properties to receive when renumbering a whole column by created_at
+class ItemSort(SQLModel):
+    status: ItemStatus
+    direction: SortDirection
+
+
 # Database model, database table inferred from class name
 class Item(ItemBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -94,6 +122,9 @@ class Item(ItemBase, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
+    status: ItemStatus = Field(default=ItemStatus.todo, nullable=False, index=True)
+    # 0-based and contiguous within an (owner_id, status) group
+    position: int = Field(default=0, ge=0, nullable=False)
     owner_id: uuid.UUID = Field(
         foreign_key="user.id", nullable=False, ondelete="CASCADE"
     )
@@ -105,6 +136,8 @@ class ItemPublic(ItemBase):
     id: uuid.UUID
     owner_id: uuid.UUID
     created_at: datetime | None = None
+    status: ItemStatus
+    position: int
 
 
 class ItemsPublic(SQLModel):
