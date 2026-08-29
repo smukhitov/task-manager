@@ -4,10 +4,10 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 | Label in mattpocock/skills | Label in our tracker | Meaning                                  |
 | --------------------------- | --------------------- | ----------------------------------------- |
-| `needs-triage`               | `new`                  | Not reviewed yet                          |
+| `needs-triage`               | `needs-triage`         | Not reviewed yet                          |
 | `needs-info`                 | `needs-info`           | Waiting on the reporter for more details  |
-| `ready-for-agent`            | `agent-ready`          | Clear enough for an AI agent to pick up   |
-| `ready-for-human`            | `human-needed`         | Needs a person to implement it            |
+| `ready-for-agent`            | `ready-for-agent`      | Clear enough for an AI agent to pick up   |
+| `ready-for-human`            | `ready-for-human`      | Needs a person to implement it            |
 | `wontfix`                    | `wontfix`              | Won't be worked on                        |
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.

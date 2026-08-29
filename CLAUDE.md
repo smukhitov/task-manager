@@ -1,4 +1,6 @@
-- Commit after each major change/update, include meaningful commit message
+## General Instructions
+- Create a new branch for each feature/issue you work on, using the issue number in the branch name (e.g., `issue-123`).
+- Commit after each major change/update, include meaningful commit message 
 - If you do not know answer for the question, acknowledge it, do not make up answers by guessing.
 - Work only within the project directory: 'D:\dev\task-manager'. Do not edit/update/delete files and configs beyond this project folder.
 
