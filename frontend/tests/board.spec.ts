@@ -44,6 +44,34 @@ async function moveCard(page: Page, title: string, keys: string[]) {
   await pressAndSettle(page, "Space")
 }
 
+const COLUMN_TITLES: Record<ColumnStatus, string> = {
+  todo: "Todo",
+  in_progress: "In Progress",
+  completed: "Completed",
+}
+
+/**
+ * The given titles in the order they appear in a column, ignoring any other
+ * cards. The board user is shared across the tests in this file, so a column
+ * can hold leftovers from earlier ones.
+ */
+async function orderOf(page: Page, status: ColumnStatus, titles: string[]) {
+  const present = await columnTitles(page, status)
+  return present.filter((title) => titles.includes(title))
+}
+
+/** Pick a sort direction from a column's sort control. */
+async function sortColumn(
+  page: Page,
+  status: ColumnStatus,
+  label: "Newest first" | "Oldest first",
+) {
+  await column(page, status)
+    .getByRole("button", { name: `Sort ${COLUMN_TITLES[status]}` })
+    .click()
+  await page.getByRole("menuitem", { name: label }).click()
+}
+
 async function addItem(page: Page, title: string) {
   await page.getByRole("button", { name: "Add Item" }).click()
   await page.getByLabel("Title").fill(title)
@@ -144,5 +172,64 @@ test.describe("Board", () => {
     await expect
       .poll(async () => (await columnTitles(page, "todo")).slice(-2))
       .toEqual([bottom, top])
+  })
+
+  test("Sorting a column reorders it and the order persists across reload", async ({
+    page,
+  }) => {
+    const older = randomItemTitle()
+    const newer = randomItemTitle()
+    await addItem(page, older)
+    await addItem(page, newer)
+
+    // New items append to the end of Todo, so creation order is the start.
+    expect(await orderOf(page, "todo", [older, newer])).toEqual([older, newer])
+
+    await sortColumn(page, "todo", "Newest first")
+    await expect
+      .poll(() => orderOf(page, "todo", [older, newer]))
+      .toEqual([newer, older])
+
+    // The sort rewrote stored positions, so a reload shows the same order.
+    await page.reload()
+    await expect
+      .poll(() => orderOf(page, "todo", [older, newer]))
+      .toEqual([newer, older])
+
+    await sortColumn(page, "todo", "Oldest first")
+    await expect
+      .poll(() => orderOf(page, "todo", [older, newer]))
+      .toEqual([older, newer])
+
+    await page.reload()
+    await expect
+      .poll(() => orderOf(page, "todo", [older, newer]))
+      .toEqual([older, newer])
+  })
+
+  test("Dragging a card after a sort overrides the sorted order", async ({
+    page,
+  }) => {
+    const older = randomItemTitle()
+    const newer = randomItemTitle()
+    await addItem(page, older)
+    await addItem(page, newer)
+
+    await sortColumn(page, "todo", "Newest first")
+    await expect
+      .poll(() => orderOf(page, "todo", [older, newer]))
+      .toEqual([newer, older])
+
+    // Newest-first puts these two at the top of the column, so one step down
+    // swaps them.
+    await moveCard(page, newer, ["ArrowDown"])
+    await expect
+      .poll(() => orderOf(page, "todo", [older, newer]))
+      .toEqual([older, newer])
+
+    await page.reload()
+    await expect
+      .poll(() => orderOf(page, "todo", [older, newer]))
+      .toEqual([older, newer])
   })
 })

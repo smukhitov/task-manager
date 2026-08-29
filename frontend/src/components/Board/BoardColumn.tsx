@@ -9,16 +9,19 @@ import { BoardCard } from "./BoardCard"
 interface BoardColumnProps {
   /** The id of the card currently being dragged, if any. */
   activeId: string | null
+  /** Hold the cards still — a write is in flight that will reorder them. */
+  dragDisabled?: boolean
   status: ItemStatus
   title: string
   items: ItemPublic[]
-  /** Slot for the per-column sort control (#10). */
+  /** Slot for the per-column sort control. */
   action?: ReactNode
 }
 
 export const BoardColumn = ({
   status,
   activeId,
+  dragDisabled,
   title,
   items,
   action,
@@ -57,6 +60,7 @@ export const BoardColumn = ({
               key={item.id}
               item={item}
               isActive={activeId === item.id}
+              dragDisabled={dragDisabled}
             />
           ))}
         </SortableContext>
