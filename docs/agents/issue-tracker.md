@@ -34,6 +34,15 @@ Create a GitHub issue.
 
 Run `gh issue view <number> --comments`.
 
+## Specs vs. tickets
+
+A **spec** (e.g. from `/to-spec`) and the **tickets** it's broken into (e.g. from `/to-tickets`) are both plain GitHub issues, but link them with GitHub's native **sub-issue** relationship rather than just a "Part of #N" text reference — it gives a live checklist on the parent and lets tooling distinguish specs from tickets structurally (`sub_issues_summary`), not just by convention.
+
+- **Link a ticket under its spec**: get each issue's numeric database id (`gh api repos/<owner>/<repo>/issues/<n> --jq .id` — not the `#number` or `node_id`), then `gh api --method POST repos/<owner>/<repo>/issues/<spec-number>/sub_issues -F sub_issue_id=<ticket-db-id>`.
+- **List a spec's tickets**: `gh api repos/<owner>/<repo>/issues/<spec-number>/sub_issues --jq '.[].number'`.
+- Still put "Part of #N" at the top of the ticket body too — it's redundant with the sub-issue link but keeps the reference visible when reading the raw issue body/diff.
+- Blocking order between tickets (which ticket gates which) is a separate relationship — see the native issue-dependencies mechanism in the Wayfinding section below, which applies here too, not just to wayfinder maps.
+
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
