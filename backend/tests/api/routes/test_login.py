@@ -1,3 +1,5 @@
+import uuid
+from datetime import timedelta
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -5,7 +7,11 @@ from pwdlib.hashers.bcrypt import BcryptHasher
 from sqlmodel import Session
 
 from app.core.config import settings
-from app.core.security import get_password_hash, verify_password
+from app.core.security import (
+    create_access_token,
+    get_password_hash,
+    verify_password,
+)
 from app.crud import create_user
 from app.models import User, UserCreate
 from app.utils import generate_password_reset_token
@@ -189,3 +195,89 @@ def test_login_with_argon2_password_keeps_hash(client: TestClient, db: Session) 
 
     assert user.hashed_password == original_hash
     assert user.hashed_password.startswith("$argon2")
+
+
+def test_use_access_token_for_deleted_user(client: TestClient, db: Session) -> None:
+    """A token whose user row is gone is an auth failure, not a missing resource."""
+    email = random_email()
+    password = random_lower_string()
+    user = create_user(
+        session=db, user_create=UserCreate(email=email, password=password)
+    )
+    headers = user_authentication_headers(client=client, email=email, password=password)
+
+    db.delete(user)
+    db.commit()
+
+    r = client.post(f"{settings.API_V1_STR}/login/test-token", headers=headers)
+
+    assert r.status_code == 401
+    assert r.json()["detail"] == "Could not validate credentials"
+    assert r.headers["WWW-Authenticate"] == "Bearer"
+
+
+def test_use_access_token_for_unknown_subject(client: TestClient) -> None:
+    """A well-formed token naming a user that never existed is rejected the same way."""
+    token = create_access_token(uuid.uuid4(), expires_delta=timedelta(minutes=30))
+
+    r = client.post(
+        f"{settings.API_V1_STR}/login/test-token",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert r.status_code == 401
+    assert r.json()["detail"] == "Could not validate credentials"
+
+
+def test_use_access_token_for_inactive_user(client: TestClient, db: Session) -> None:
+    """A user that still exists but is deactivated keeps its own distinct response."""
+    email = random_email()
+    password = random_lower_string()
+    user = create_user(
+        session=db, user_create=UserCreate(email=email, password=password)
+    )
+    headers = user_authentication_headers(client=client, email=email, password=password)
+
+    user.is_active = False
+    db.add(user)
+    db.commit()
+
+    r = client.post(f"{settings.API_V1_STR}/login/test-token", headers=headers)
+
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Inactive user"
+
+
+def test_use_access_token_malformed(client: TestClient) -> None:
+    """A token that does not decode is rejected as an authentication failure."""
+    r = client.post(
+        f"{settings.API_V1_STR}/login/test-token",
+        headers={"Authorization": "Bearer not-a-real-token"},
+    )
+
+    assert r.status_code == 401
+    assert r.json()["detail"] == "Could not validate credentials"
+    assert r.headers["WWW-Authenticate"] == "Bearer"
+
+
+def test_credential_failures_are_indistinguishable(client: TestClient) -> None:
+    """A garbage token and a token for a deleted account look identical.
+
+    Anything that told them apart would report whether an account ever existed.
+    """
+    unknown_subject = create_access_token(
+        uuid.uuid4(), expires_delta=timedelta(minutes=30)
+    )
+
+    responses = [
+        client.post(
+            f"{settings.API_V1_STR}/login/test-token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        for token in ("not-a-real-token", unknown_subject)
+    ]
+
+    malformed, deleted = responses
+    assert malformed.status_code == deleted.status_code
+    assert malformed.json() == deleted.json()
+    assert malformed.headers["WWW-Authenticate"] == deleted.headers["WWW-Authenticate"]

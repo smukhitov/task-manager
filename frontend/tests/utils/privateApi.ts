@@ -1,11 +1,7 @@
 // Note: the `PrivateService` is only available when generating the client
 // for local environments
 import { PrivateService } from "../../src/client"
-import { client } from "../../src/client/client.gen"
-
-client.setConfig({
-  baseURL: `${process.env.VITE_API_URL}`,
-})
+import "./client"
 
 export const createUser = async ({
   email,
