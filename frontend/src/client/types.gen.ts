@@ -59,6 +59,17 @@ export type ItemCreate = {
 };
 
 /**
+ * ItemMove
+ */
+export type ItemMove = {
+    target_status: ItemStatus;
+    /**
+     * Target Index
+     */
+    target_index: number;
+};
+
+/**
  * ItemPublic
  */
 export type ItemPublic = {
@@ -82,7 +93,27 @@ export type ItemPublic = {
      * Created At
      */
     created_at?: string | null;
+    status: ItemStatus;
+    /**
+     * Position
+     */
+    position: number;
 };
+
+/**
+ * ItemSort
+ */
+export type ItemSort = {
+    status: ItemStatus;
+    direction: SortDirection;
+};
+
+/**
+ * ItemStatus
+ *
+ * The board column an item lives in.
+ */
+export type ItemStatus = 'todo' | 'in_progress' | 'completed';
 
 /**
  * ItemUpdate
@@ -157,6 +188,13 @@ export type PrivateUserCreate = {
      */
     is_verified?: boolean;
 };
+
+/**
+ * SortDirection
+ *
+ * Direction used when renumbering a column by `created_at`.
+ */
+export type SortDirection = 'newest_first' | 'oldest_first';
 
 /**
  * Token
@@ -920,6 +958,61 @@ export type itemsUpdateItemResponses = {
 };
 
 export type itemsUpdateItemResponse = itemsUpdateItemResponses[keyof itemsUpdateItemResponses];
+
+export type itemsMoveItemData = {
+    body: ItemMove;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/items/{id}/move';
+};
+
+export type itemsMoveItemErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itemsMoveItemError = itemsMoveItemErrors[keyof itemsMoveItemErrors];
+
+export type itemsMoveItemResponses = {
+    /**
+     * Successful Response
+     */
+    200: ItemPublic;
+};
+
+export type itemsMoveItemResponse = itemsMoveItemResponses[keyof itemsMoveItemResponses];
+
+export type itemsSortItemsData = {
+    body: ItemSort;
+    path?: never;
+    query?: never;
+    url: '/api/v1/items/sort';
+};
+
+export type itemsSortItemsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itemsSortItemsError = itemsSortItemsErrors[keyof itemsSortItemsErrors];
+
+export type itemsSortItemsResponses = {
+    /**
+     * Successful Response
+     */
+    200: ItemsPublic;
+};
+
+export type itemsSortItemsResponse = itemsSortItemsResponses[keyof itemsSortItemsResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;
