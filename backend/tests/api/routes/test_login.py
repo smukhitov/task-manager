@@ -246,3 +246,38 @@ def test_use_access_token_for_inactive_user(client: TestClient, db: Session) -> 
 
     assert r.status_code == 400
     assert r.json()["detail"] == "Inactive user"
+
+
+def test_use_access_token_malformed(client: TestClient) -> None:
+    """A token that does not decode is rejected as an authentication failure."""
+    r = client.post(
+        f"{settings.API_V1_STR}/login/test-token",
+        headers={"Authorization": "Bearer not-a-real-token"},
+    )
+
+    assert r.status_code == 401
+    assert r.json()["detail"] == "Could not validate credentials"
+    assert r.headers["WWW-Authenticate"] == "Bearer"
+
+
+def test_credential_failures_are_indistinguishable(client: TestClient) -> None:
+    """A garbage token and a token for a deleted account look identical.
+
+    Anything that told them apart would report whether an account ever existed.
+    """
+    unknown_subject = create_access_token(
+        uuid.uuid4(), expires_delta=timedelta(minutes=30)
+    )
+
+    responses = [
+        client.post(
+            f"{settings.API_V1_STR}/login/test-token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        for token in ("not-a-real-token", unknown_subject)
+    ]
+
+    malformed, deleted = responses
+    assert malformed.status_code == deleted.status_code
+    assert malformed.json() == deleted.json()
+    assert malformed.headers["WWW-Authenticate"] == deleted.headers["WWW-Authenticate"]

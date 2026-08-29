@@ -1,14 +1,8 @@
 // Direct API access for setting up states the UI cannot reach on its own —
 // notably deleting a record behind the back of a page that is still showing it.
 import { ItemsService, LoginService, UsersService } from "../../src/client"
-import { client } from "../../src/client/client.gen"
-import { firstSuperuser, firstSuperuserPassword } from "../config.ts"
-
-client.setConfig({
-  baseURL: `${process.env.VITE_API_URL}`,
-})
-
-const bearer = (token: string) => ({ Authorization: `Bearer ${token}` })
+import { firstSuperuser, firstSuperuserPassword } from "../config"
+import { bearer } from "./client"
 
 export const getAccessToken = async ({
   email,
