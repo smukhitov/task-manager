@@ -10,6 +10,15 @@ The frontend is built with [Vite](https://vitejs.dev/), [React](https://react.de
 
 From the project root, install the dependencies and start the frontend development server:
 
+Using npm: 
+
+```bash
+cd frontend
+npm install
+npm run dev -w frontend
+```
+
+Using bun:
 ```bash
 bun install
 bun run dev
