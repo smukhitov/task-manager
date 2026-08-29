@@ -2,7 +2,7 @@ from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, delete
+from sqlmodel import Session, col, delete
 
 from app.core.config import settings
 from app.core.db import engine, init_db
@@ -19,7 +19,12 @@ def db() -> Generator[Session]:
         yield session
         statement = delete(Item)
         session.execute(statement)
-        statement = delete(User)
+        # Keep the first superuser. This fixture runs against whatever
+        # DATABASE_URL points at, which locally is the developer's own database,
+        # and wiping it wholesale left them unable to log in after a test run.
+        # init_db recreates this row at session start anyway, so preserving it
+        # costs nothing and keeps the environment usable afterwards.
+        statement = delete(User).where(col(User.email) != settings.FIRST_SUPERUSER)
         session.execute(statement)
         session.commit()
 
